@@ -69,6 +69,7 @@ def choose():
     gcal_service = get_gcal_service(credentials)
     app.logger.debug("Returned from get_gcal_service")
     flask.g.calendars = list_calendars(gcal_service)
+    flask.g.events = get_events(gcal_service,flask.g.calendars[3])
     return render_template('index.html')
 
 ####
@@ -309,7 +310,7 @@ def list_calendars(service):
         selected = ("selected" in cal) and cal["selected"]
         primary = ("primary" in cal) and cal["primary"]
         
-
+        
         result.append(
           { "kind": kind,
             "id": id,
@@ -318,6 +319,31 @@ def list_calendars(service):
             "primary": primary
             })
     return sorted(result, key=cal_sort_key)
+
+    
+def get_events(service,cal):
+    """
+    Args: cal  = calendar to which to get events from
+    returns events from calendar
+    """
+    app.logger.debug("Entering get_events") 
+    results = [ ]
+    print (cal['id'])
+    page_token = None
+    while True:
+        events = service.events().list(calendarId=cal['id'], pageToken=page_token, timeMax=flask.session['begin_time'],timeMin=flask.session['end_time']).execute()
+    
+        for event in events['items']:
+            results.append( {"description": event['description'],
+                            "start_time" : event['start'],
+                            "end_time" : event['end']
+                            })
+        print (events['items'])
+        page_token = events.get('nextPageToken')
+        if not page_token:
+            break    
+    return results
+    #event = service.events().get(calendarId=cal["id"], eventId='eventId').execute()
 
 
 def cal_sort_key( cal ):

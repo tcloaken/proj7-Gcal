@@ -93,10 +93,14 @@
   {% for cal in g.calendars if cal.selected %}
           <div class="col-md-4">
 	   {{ cal.summary }}
+	   {{ cal.id }}
+	   {% for event in g.events %}
+			{{ event.description }}
           </div>
          {% if loop.index is divisibleby 3 %}
           </div> <div class="row">
          {% endif %}
+		{% endfor %}
   {% endfor %}
   </div>
 {% endif %}
