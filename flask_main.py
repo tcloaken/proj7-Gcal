@@ -4,6 +4,7 @@ from flask import request
 from flask import url_for
 import uuid
 
+
 import json
 import logging
 
@@ -324,21 +325,28 @@ def list_calendars(service):
 def get_events(service,cal):
     """
     Args: cal  = calendar to which to get events from
-    returns events from calendar
+    returns events from 
+	##timeMax=flask.session['begin_time'],timeMin=flask.session['end_time']
     """
     app.logger.debug("Entering get_events") 
     results = [ ]
     print (cal['id'])
     page_token = None
     while True:
-        events = service.events().list(calendarId=cal['id'], pageToken=page_token, timeMax=flask.session['begin_time'],timeMin=flask.session['end_time']).execute()
-    
+        events = service.events().list(calendarId=cal['id'], pageToken=page_token).execute()
+        #print (events)
         for event in events['items']:
-            results.append( {"description": event['description'],
-                            "start_time" : event['start'],
-                            "end_time" : event['end']
-                            })
-        print (events['items'])
+            if 'transparency' in event:
+                
+                if event['start']['dateTime'] > flask.session['begin_date'] and event['end']['dateTime'] < flask.session['end_date']:
+                    results.append( {"description": event['summary'],
+								"start_time" : event['start'],
+								"end_time" : event['end']
+								})
+                else:
+                    print (event['summary'], "not in date select")
+            else:
+                print (event['summary'], "its busy")
         page_token = events.get('nextPageToken')
         if not page_token:
             break    
