@@ -81,17 +81,12 @@ def chosen():
     app.logger.debug("ENTERING CHOSEN")
     credentials = valid_credentials()
     gcal_service = get_gcal_service(credentials)
-    cals = []
     eventList = []
-    arguments = flask.request.args
-    print (arguments)
-    print ("shikababaKDMAFasld")
-    for elem in arguments:
-        cals.append(elem[1])
-        #print(arguments['calendar'])
+    cals = flask.request.args.getlist("calendar", type = str)
     for cal in cals:
-        #eventList.append(get_events(gcal_service,cal))
-        print(cal)
+        print (cal, "WOOW WOOO")
+        eventList.append(get_events(gcal_service,cal.strip()))
+        
     flask.g.events = delister(eventList)
     return render_template('index.html')
 	
@@ -358,28 +353,28 @@ def list_calendars(service):
     
 def get_events(service,cal):
     """
-    Args: cal  = calendar to which to get events from
-    returns events from 
+    Args: cal  = calendarId from the calendar to get events from
+    Returns: list of events from calendar from specific dates and times
 	##timeMax=flask.session['begin_time'],timeMin=flask.session['end_time']
     """
     app.logger.debug("Entering get_events") 
     results = [ ]
     time_earliest = arrow.get(flask.session['begin_time']).time()
     time_latest = arrow.get(flask.session['end_time']).time()
-    
+    print (cal, "THIS IS THE CURRENT CAL")
     page_token = None
     while True:
         events = service.events().list(calendarId=cal, pageToken=page_token).execute()
         #find events that are are in the date and time parameters
         for event in events['items']:
-            if 'transparency' in event:
+            if ('transparency' not in event) and ('dateTime' in event['start']):
                 if event['start']['dateTime'] >= flask.session['begin_date'] and event['end']['dateTime'] <= flask.session['end_date']:
                     event_time_start = arrow.get(event['start']['dateTime']).time()
                     event_time_end = arrow.get(event['end']['dateTime']).time()
                     if (time_earliest <= event_time_start <= time_latest) or (time_earliest <= event_time_end <= time_latest ):
                         results.append( {"description": event['summary'],
-								"start_time" : event['start']['dateTime'],
-								"end_time" : event['end']['dateTime']
+								"start" : event['start']['dateTime'],
+								"end" : event['end']['dateTime']
 								})
                     #else:
                         #app.logger.debug(event['summary'], "not in time select")

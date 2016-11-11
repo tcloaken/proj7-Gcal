@@ -89,12 +89,13 @@
     prefer down then across). 
     -->
 {% if g.calendars is defined  %}
+  <h5> Select your calendars that you'd like to query  </h5>
   <form action="/chosen" method="get">
   <div class="row">
   
   {% for cal in g.calendars if cal.selected %}
           <div class="col-md-4">
-	      <input type="checkbox" name="calendar" checked="checked" value="{{ cal.id }}"> {{cal.summary}}
+	      <input type="checkbox" name="calendar" checked="checked" value="{{cal.id}}"> {{cal.summary}}
 	  
           </div>
          {% if loop.index is divisibleby 3 %}
@@ -108,11 +109,15 @@
 {% endif %}
 
 {% if g.events is defined %}
- <div class="row">
+<h5> These are busy times  </h5>
+ 
     {% for event in g.events %}
-        <div class="col-md-4">
-		{{ event.description }}
+        
+		<li> Description:* {{ event.description }}  * ___Start Time: {{event.start}} __ End Time: {{event.end}}</li>
 		
+		{% if loop.index is divisibleby 3 %}
+         
+        {% endif %}
 	{%endfor%}
 {% endif %}
   </div>  <!-- container (for bootstrap) -->
