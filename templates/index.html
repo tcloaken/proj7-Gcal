@@ -89,22 +89,31 @@
     prefer down then across). 
     -->
 {% if g.calendars is defined  %}
+  <form action="/chosen" method="get">
   <div class="row">
+  
   {% for cal in g.calendars if cal.selected %}
           <div class="col-md-4">
-	   {{ cal.summary }}
+	      <input type="checkbox" name="calendar" checked="checked" value="{{ cal.id }}"> {{cal.summary}}
 	  
-	   {% for event in g.events %}
-			{{ event.description }}
           </div>
          {% if loop.index is divisibleby 3 %}
           </div> <div class="row">
          {% endif %}
-		{% endfor %}
+		
   {% endfor %}
   </div>
+  <input type="submit" value="Submit">
+  <form>
 {% endif %}
-    
 
+{% if g.events is defined %}
+ <div class="row">
+    {% for event in g.events %}
+        <div class="col-md-4">
+		{{ event.description }}
+		
+	{%endfor%}
+{% endif %}
   </div>  <!-- container (for bootstrap) -->
   </body> </html>

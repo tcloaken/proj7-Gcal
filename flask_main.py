@@ -70,9 +70,31 @@ def choose():
     gcal_service = get_gcal_service(credentials)
     app.logger.debug("Returned from get_gcal_service")
     flask.g.calendars = list_calendars(gcal_service)
-    flask.g.events = get_events(gcal_service,flask.g.calendars[3])
+    
     return render_template('index.html')
 
+@app.route("/chosen")
+def chosen():
+    """
+    flask.g.events = get_events(gcal_service,flask.g.calendars[3])
+    """
+    app.logger.debug("ENTERING CHOSEN")
+    credentials = valid_credentials()
+    gcal_service = get_gcal_service(credentials)
+    cals = []
+    eventList = []
+    arguments = flask.request.args
+    print (arguments)
+    print ("shikababaKDMAFasld")
+    for elem in arguments:
+        cals.append(elem[1])
+        #print(arguments['calendar'])
+    for cal in cals:
+        #eventList.append(get_events(gcal_service,cal))
+        print(cal)
+    flask.g.events = delister(eventList)
+    return render_template('index.html')
+	
 ####
 #
 #  Google calendar authorization:
@@ -287,6 +309,18 @@ def next_day(isotext):
 #  Functions (NOT pages) that return some information
 #
 ####
+def delister(slist):
+    """
+    Args: list
+    helper function to remove list of lists
+    Returns: one list
+    """
+    result = []
+    for elem in slist:
+        for el in elem:
+            result.append(el)
+    return result
+
   
 def list_calendars(service):
     """
@@ -330,28 +364,33 @@ def get_events(service,cal):
     """
     app.logger.debug("Entering get_events") 
     results = [ ]
-    print (cal['id'])
+    time_earliest = arrow.get(flask.session['begin_time']).time()
+    time_latest = arrow.get(flask.session['end_time']).time()
+    
     page_token = None
     while True:
-        events = service.events().list(calendarId=cal['id'], pageToken=page_token).execute()
-        #print (events)
+        events = service.events().list(calendarId=cal, pageToken=page_token).execute()
+        #find events that are are in the date and time parameters
         for event in events['items']:
             if 'transparency' in event:
-                
-                if event['start']['dateTime'] > flask.session['begin_date'] and event['end']['dateTime'] < flask.session['end_date']:
-                    results.append( {"description": event['summary'],
-								"start_time" : event['start'],
-								"end_time" : event['end']
+                if event['start']['dateTime'] >= flask.session['begin_date'] and event['end']['dateTime'] <= flask.session['end_date']:
+                    event_time_start = arrow.get(event['start']['dateTime']).time()
+                    event_time_end = arrow.get(event['end']['dateTime']).time()
+                    if (time_earliest <= event_time_start <= time_latest) or (time_earliest <= event_time_end <= time_latest ):
+                        results.append( {"description": event['summary'],
+								"start_time" : event['start']['dateTime'],
+								"end_time" : event['end']['dateTime']
 								})
-                else:
-                    print (event['summary'], "not in date select")
-            else:
-                print (event['summary'], "its busy")
+                    #else:
+                        #app.logger.debug(event['summary'], "not in time select")
+                #else:
+                    #app.logger.debug(event['summary'], "not in date select")
+            #else:
+                #app.logger.debug(event['summary'], "is busy")
         page_token = events.get('nextPageToken')
         if not page_token:
             break    
     return results
-    #event = service.events().get(calendarId=cal["id"], eventId='eventId').execute()
 
 
 def cal_sort_key( cal ):
