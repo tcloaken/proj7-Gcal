@@ -1,1 +1,0 @@
-google_key_file = "secrets/google_client_file.json"
