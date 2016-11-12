@@ -1,55 +1,24 @@
-# proj6-Gcal
-Snarf appointment data from a selection of a user's Google calendars 
+# proj7-Gcal
+# Author = Trevor Enright ,  tenright@uoregon.edu
 
-## What is here
+Grab appointment data from a selection of a user's Google calendars 
+Provides list of busy times with a description
 
-I've provided code for the authorization (oauth2) protocol for Google
-calendars.  There is also a picker for a date range. 
 
-## What you'll add
 
-You'll need to read the Google developer documentation to learn how to
-obtain information from the Google Calendar service.
+to get started:
+bash ./configure
+make run
 
-Your application should allow the user to choose calendars (a single
-user may have several Google calendars, one of which is the 'primary'
-calendar) and list 'blocking'  (non-transparent)
-appointments between a start date and an end date
-for some subset of them.
+localhost:5000 or ip address
 
-## Hints
+you'll need secrets folder with admin_secrets.py
+pointing to other file in secrets folder: a json file 
+the json file must be the downloaded google_key_file
+from https://console.developers.google.com/apis/credentials
+and set it up with https://manage.auth0.com/
 
-You'll need a 'client secret' file of your own.  It should *not* be
-under GIT control.  This is kind of a
-developer key, which you need to obtain from Google.  See
-https://auth0.com/docs/connections/social/google and
-https://developers.google.com/identity/protocols/OAuth2 .
-The applicable scenario for us is 'Web server applications'  (since
-we're doing this in Flask).  
-
-Your client secret will have to be registered for the URLs used for 
-the oauth2 'callback' in the authorization protocol.  This URL includes
-the port on which your application is running, so you you will need to 
-use the same port each time you run your application. You can register 
-the same key for multiple URLs, so for example I have registered mine
-for localhost:5000/oauth2callback, localhost:8000/oauth2callback, 
-roethke.d.cs.uoregon.edu:5000/oauth2callback, and 
-roethke.d.cs.uoregon.edu:8000/oauth2callback. (Roethke is my raspberry Pi
-at school.)  When we test your code, our grader and I will use our own 
-admin_secrets.py and google credentials files, but we will use your 
-client_secrets.py file.  As in the last project, your client_secrets.py
-file should include a reference to your repository and to your name, 
-so that our friendly (but clumsy) robots can use it to install your code. 
-
-I have noticed that getting the list of calendars from Google is very very 
-slow when running on my laptop at home, and snappier when accessing through
-roethke.  I suspect that is because roethke.d.cs.uoregon.edu is is 
-a routable IP address, while "localhost" on my home network requires some
-behind-the-curtains magic from my home router.  I don't know that for sure. 
-
-Whether or not you already have a Google calendar, it's a good idea to
-create one or two 'test' calendars with a known set of appointments
-for testing.
+flask_main.py has a lots of code to handshake with google calendars
 
 
 

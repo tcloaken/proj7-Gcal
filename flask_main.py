@@ -51,8 +51,11 @@ APPLICATION_NAME = 'MeetMe class project'
 @app.route("/index")
 def index():
   app.logger.debug("Entering index")
-  if 'begin_date' not in flask.session:
+  if ('begin_date' not in flask.session):
     init_session_values()
+  flask.g.b_time = arrow.get(flask.session['begin_time']).format("H:mm")
+  flask.g.e_time = arrow.get(flask.session['end_time']).format("H:mm")
+  
   return render_template('index.html')
 
 @app.route("/choose")
@@ -76,20 +79,27 @@ def choose():
 @app.route("/chosen")
 def chosen():
     """
-    flask.g.events = get_events(gcal_service,flask.g.calendars[3])
+    After choosing the calendars this functions gets the calendars the user picked
+    creates a list of the calendarIds from the args
+    gets busy events from each calendar
+    uses a helper function to tidy up and sort the list of events
+    creates a flask.g object of the list of busy events
+    RETURNS: back to index page with the list of busy events
     """
     app.logger.debug("ENTERING CHOSEN")
     credentials = valid_credentials()
     gcal_service = get_gcal_service(credentials)
     eventList = []
+    flask.g.events = []
     cals = flask.request.args.getlist("calendar", type = str)
     for cal in cals:
-        print (cal, "WOOW WOOO")
         eventList.append(get_events(gcal_service,cal.strip()))
         
     flask.g.events = delister(eventList)
+    
     return render_template('index.html')
 	
+    
 ####
 #
 #  Google calendar authorization:
@@ -216,10 +226,14 @@ def setrange():
     flask.flash("Setrange gave us '{}'".format(
       request.form.get('daterange')))
     daterange = request.form.get('daterange')
+    b_time = request.form.get('b_time')
+    e_time = request.form.get('e_time')
     flask.session['daterange'] = daterange
     daterange_parts = daterange.split()
     flask.session['begin_date'] = interpret_date(daterange_parts[0])
     flask.session['end_date'] = interpret_date(daterange_parts[2])
+    flask.session['begin_time'] = interpret_time(b_time)
+    flask.session['end_time'] = interpret_time(e_time)
     app.logger.debug("Setrange parsed {} - {}  dates as {} - {}".format(
       daterange_parts[0], daterange_parts[1], 
       flask.session['begin_date'], flask.session['end_date']))
@@ -307,14 +321,14 @@ def next_day(isotext):
 def delister(slist):
     """
     Args: list
-    helper function to remove list of lists
-    Returns: one list
+    helper function to convert list of list of events into one list of events
+    Returns: one list, sorted by date
     """
     result = []
     for elem in slist:
         for el in elem:
             result.append(el)
-    return result
+    return sorted(result,key=event_sort)
 
   
 def list_calendars(service):
@@ -354,8 +368,7 @@ def list_calendars(service):
 def get_events(service,cal):
     """
     Args: cal  = calendarId from the calendar to get events from
-    Returns: list of events from calendar from specific dates and times
-	##timeMax=flask.session['begin_time'],timeMin=flask.session['end_time']
+    Returns: list of events from calendar from user specified range of dates and times
     """
     app.logger.debug("Entering get_events") 
     results = [ ]
@@ -367,26 +380,34 @@ def get_events(service,cal):
         events = service.events().list(calendarId=cal, pageToken=page_token).execute()
         #find events that are are in the date and time parameters
         for event in events['items']:
-            if ('transparency' not in event) and ('dateTime' in event['start']):
-                if event['start']['dateTime'] >= flask.session['begin_date'] and event['end']['dateTime'] <= flask.session['end_date']:
-                    event_time_start = arrow.get(event['start']['dateTime']).time()
-                    event_time_end = arrow.get(event['end']['dateTime']).time()
-                    if (time_earliest <= event_time_start <= time_latest) or (time_earliest <= event_time_end <= time_latest ):
-                        results.append( {"description": event['summary'],
+            if ('transparency' not in event):
+                if ('dateTime' in event['start']):         
+                    if event['start']['dateTime'] >= flask.session['begin_date'] and event['end']['dateTime'] <= flask.session['end_date']:
+                        event_time_start = arrow.get(event['start']['dateTime']).time()
+                        event_time_end = arrow.get(event['end']['dateTime']).time()
+                        if (time_earliest <= event_time_start <= time_latest) or (time_earliest <= event_time_end <= time_latest ):
+                            results.append( {"description": event['summary'],
 								"start" : event['start']['dateTime'],
 								"end" : event['end']['dateTime']
 								})
-                    #else:
-                        #app.logger.debug(event['summary'], "not in time select")
-                #else:
-                    #app.logger.debug(event['summary'], "not in date select")
-            #else:
-                #app.logger.debug(event['summary'], "is busy")
+                elif ('date' in event['start']):
+                    if event['start']['date'] >= flask.session['begin_date'] and event['end']['date'] <= flask.session['end_date']:
+                        results.append( {"description": event['summary'],
+                                         "start" : event['start']['date'],
+                                         "end" : event['end']['date']
+                                        })
+                
         page_token = events.get('nextPageToken')
         if not page_token:
             break    
     return results
 
+    
+def event_sort( events ):
+    """
+    sorts events by start date
+    """
+    return events['start']
 
 def cal_sort_key( cal ):
     """

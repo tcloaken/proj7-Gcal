@@ -52,13 +52,14 @@
     </ul>
   {% endif %}
 {% endwith %}
-
+{% if (g.calendars is not defined) and (g.events is not defined) %}
 <h2>Date range</h2>
   <form action="/setrange" method="post">
   <input type="text" name="daterange" size="12"
     {% if session.daterange is defined %}
          value="{{session.daterange}}"
     {% endif %}
+	
      class="pull-down"
      style="background: #fff; cursor: pointer; padding: 5px 10px;
      border: 1px solid #ccc; width: 12em" >
@@ -79,9 +80,12 @@
     });
   </script>
 
+<br />begin time<input type="text" value="{{g.b_time}}" name="b_time">
+<br />end time <input type="text" value="{{g.e_time}}" name="e_time">
+
 <br /><input type="submit" value="Choose" />
 </form>
-
+{%endif%}
     <!--
     Show the calendar list (if we have it).  This will need to be turned into
     a form from which calendars can be picked. Up to three entries are
@@ -119,6 +123,10 @@
          
         {% endif %}
 	{%endfor%}
+<br />
+<form action="/index" > 
+<input type="submit"  value="Restart" name="restart">
+</form>
 {% endif %}
   </div>  <!-- container (for bootstrap) -->
   </body> </html>
