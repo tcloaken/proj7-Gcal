@@ -12,7 +12,9 @@ import logging
 import arrow # Replacement for datetime, based on moment.js
 # import datetime # But we still need time
 from dateutil import tz  # For interpreting local times
-
+# Import module for calculating open times
+import opentimes
+from opentimes import busy_times
 
 # OAuth2  - Google library implementation for convenience
 from oauth2client import client
@@ -96,7 +98,7 @@ def chosen():
         eventList.append(get_events(gcal_service,cal.strip()))
         
     flask.g.events = delister(eventList)
-    
+    flask.g.opens = get_open_times(delister(eventList))
     return render_template('index.html')
 	
     
@@ -274,7 +276,7 @@ def interpret_time( text ):
     time_formats = ["ha", "h:mma",  "h:mm a", "H:mm"]
     try: 
         as_arrow = arrow.get(text, time_formats).replace(tzinfo=tz.tzlocal())
-        as_arrow = as_arrow.replace(year=2016) #HACK see below
+        as_arrow = as_arrow.replace(year=arrow.get(flask.session["begin_date"]).year,month=arrow.get(flask.session["begin_date"]).month,day=arrow.get(flask.session["begin_date"]).day) #HACK see below
         app.logger.debug("Succeeded interpreting time")
     except:
         app.logger.debug("Failed to interpret time")
@@ -318,6 +320,14 @@ def next_day(isotext):
 #  Functions (NOT pages) that return some information
 #
 ####
+@app.template_filter( 'humanize' )
+def humanize_arrow_date( date ):
+    """
+    Args: date in isoformat
+    Returns: formated date string
+    """
+    return str(arrow.get(date).format("MMMM DD HH:mm"))
+
 def delister(slist):
     """
     Args: list
@@ -393,8 +403,9 @@ def get_events(service,cal):
                 elif ('date' in event['start']):
                     if event['start']['date'] >= flask.session['begin_date'] and event['end']['date'] <= flask.session['end_date']:
                         results.append( {"description": event['summary'],
-                                         "start" : event['start']['date'],
-                                         "end" : event['end']['date']
+                                         "start" : event['start']['dateTime'],
+                                         "end" : event['end']['date'],
+                                         "day" : "All_day"
                                         })
                 
         page_token = events.get('nextPageToken')
@@ -402,6 +413,18 @@ def get_events(service,cal):
             break    
     return results
 
+def get_open_times(elist):
+    """
+    Args:  list of busy events
+        Uses date ranges and time ranges to narrow scope
+        calls module from open times to compute list of open blocks of time
+    Returns: list of times that aren't busy
+    """
+    earlytime = flask.session['begin_time']
+    endtime = flask.session['end_time']
+    startdate = flask.session['begin_date']
+    enddate = flask.session['end_date']
+    return busy_times(elist,startdate,enddate,earlytime,endtime)
     
 def event_sort( events ):
     """

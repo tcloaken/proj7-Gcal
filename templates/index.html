@@ -92,12 +92,26 @@
     shown in each row (but the order is across then down; I would
     prefer down then across). 
     -->
+	<!--
+	script for "toggle all" button for selecting and de-selecting calendars
+	-->
+<script>
+function toggle(source) {
+  checkboxes = document.getElementsByName('calendar');
+  for(var i=0, n=checkboxes.length;i<n;i++) {
+    checkboxes[i].checked = source.checked;
+  }
+}
+</script>	
 {% if g.calendars is defined  %}
   <h5> Select your calendars that you'd like to query  </h5>
   <form action="/chosen" method="get">
   <div class="row">
   
+
+	<input type="checkbox" checked="checked" onClick="toggle(this)" /> Toggle All<br/>
   {% for cal in g.calendars if cal.selected %}
+			
           <div class="col-md-4">
 	      <input type="checkbox" name="calendar" checked="checked" value="{{cal.id}}"> {{cal.summary}}
 	  
@@ -117,11 +131,15 @@
  
     {% for event in g.events %}
         
-		<li> Description:* {{ event.description }}  * ___Start Time: {{event.start}} __ End Time: {{event.end}}</li>
+		<li> Description: {{ event.description }} <div>  Start Time: {{event.start | humanize}} </div><div> End Time: {{event.end | humanize}}</div></li>
 		
-		{% if loop.index is divisibleby 3 %}
-         
-        {% endif %}
+		
+	{%endfor%}
+	<br/>
+	<br/>
+<h5> These are open times  </h5>	
+	{% for event in g.opens %}
+	    <li>  {{ event.description }} <div>  Start Time: {{event.start | humanize}} </div><div> End Time: {{event.end | humanize}}</div></li>
 	{%endfor%}
 <br />
 <form action="/index" > 
