@@ -139,7 +139,7 @@ function toggle(source) {
 	<br/>
 <h5> These are open times  </h5>	
 	{% for event in g.opens %}
-	    <li>  {{ event.description }} <div>  Start Time: {{event.start | humanize}} </div><div> End Time: {{event.end | humanize}}</div></li>
+	    <li>  {{ event.description }} <div>  From: {{event.start | humanize}} </div><div> To: {{event.end | humanize}}</div></li>
 	{%endfor%}
 <br />
 <form action="/index" > 

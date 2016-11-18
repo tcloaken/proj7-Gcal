@@ -1,4 +1,4 @@
-#! bin/python3
+#! /bin/python3
 
 
 
@@ -6,13 +6,31 @@
 import arrow
 
 
-def busy_times(elist, begin_date, end_date, begin_time, end_time):
+def open_times(elist, begin_date, end_date, begin_time, end_time):
     """
-    Args:  list of busy events, begin date, end date, begin time and end time
-            dates and times set by user to narrow scope times to be open
+    
+    Args:  elist -->List of busy events, list of busy events should be sorted by start time
+                    Busy event element should have attributes:
+                        "description" : describing the event
+                        "start" : start time in isoformat of event
+                        "end" : end time in isoformat of event
+                        "day" :  "Allday" **optional**  
+           begin date, end date, 
+           begin time and end time --> These are dates and times set by user to 
+                                       narrow scope times to be open
+                                       for example: 
+                                       user selects from November 22, 2016 to November 30, 2016
+                                       and from time 9:00 to 13:00
+                                       Then, the only open times will be calculated between
+                                       9am and 1pm on dates 22nd to the 30th of November
             
-    Returns:  list of times that are in the scope and that aren't occupied
-              by busy times
+            
+    Returns:  List of times that are in the scope and that aren't occupied
+              by busy times.
+              Each list will have attributes:
+                        "description" : describing the time of open *uses busy event description*
+                        "start" : start of free time
+                        "end"   :  end of free time
     """
     comp = []
     #used to iterate
@@ -51,7 +69,7 @@ def busy_times(elist, begin_date, end_date, begin_time, end_time):
                     #end of busy time is before the latest time we're interested in
                     cur_time = el['end']
                     if i+1 in range(len(busies)):
-                        #multiple busy times in day
+                        #Theres another busy time after this one on this day
                         if (busies[i+1]['start'] < end_time):
                             #next busy time is before end of time we're interested in
                             comp.append( { "description": "Free after '"+el['description']+"' until '"+busies[i+1]['description']+"'",

@@ -14,7 +14,7 @@ import arrow # Replacement for datetime, based on moment.js
 from dateutil import tz  # For interpreting local times
 # Import module for calculating open times
 import opentimes
-from opentimes import busy_times
+from opentimes import open_times
 
 # OAuth2  - Google library implementation for convenience
 from oauth2client import client
@@ -326,7 +326,7 @@ def humanize_arrow_date( date ):
     Args: date in isoformat
     Returns: formated date string
     """
-    return str(arrow.get(date).format("MMMM DD HH:mm"))
+    return str(arrow.get(date).format("MMMM DD @ HH:mm"))
 
 def delister(slist):
     """
@@ -403,7 +403,7 @@ def get_events(service,cal):
                 elif ('date' in event['start']):
                     if event['start']['date'] >= flask.session['begin_date'] and event['end']['date'] <= flask.session['end_date']:
                         results.append( {"description": event['summary'],
-                                         "start" : event['start']['dateTime'],
+                                         "start" : event['start']['date'],
                                          "end" : event['end']['date'],
                                          "day" : "All_day"
                                         })
@@ -424,7 +424,7 @@ def get_open_times(elist):
     endtime = flask.session['end_time']
     startdate = flask.session['begin_date']
     enddate = flask.session['end_date']
-    return busy_times(elist,startdate,enddate,earlytime,endtime)
+    return open_times(elist,startdate,enddate,earlytime,endtime)
     
 def event_sort( events ):
     """
