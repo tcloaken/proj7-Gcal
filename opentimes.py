@@ -65,7 +65,7 @@ def open_times(elist, begin_date, end_date, begin_time, end_time):
                 break
             if el['start'] < cur_time:
                 #start of busy time is before the time frame we're interested in
-                if el['end'] < end_time:
+                if (el['end'] < end_time) and (el['end'] > begin_time):
                     #end of busy time is before the latest time we're interested in
                     cur_time = el['end']
                     if i+1 in range(len(busies)):
@@ -96,7 +96,7 @@ def open_times(elist, begin_date, end_date, begin_time, end_time):
                     break
             elif el['start'] < end_time:
                 #start of busy time is before the end of time frame we're interested in
-                if el['end'] < end_time:
+                if (el['end'] < end_time) and (el['end'] > begin_time):
                     #end of busy time is before the latest time we're interested in
                     #free time 
                     if cur_time == begin_time:

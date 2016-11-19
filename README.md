@@ -2,7 +2,7 @@
 # Author = Trevor Enright ,  tenright@uoregon.edu
 
 Grab appointment data from a selection of a user's Google calendars 
-Provides list of busy times with a description
+Provides list of busy times with a description, also lists open times
 
 
 
