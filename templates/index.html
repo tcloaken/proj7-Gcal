@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
 <html lang="en"> <head>
-<title>Appointments</title>
+<title>MeetGazer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <link rel="stylesheet" type="text/css"
@@ -35,7 +35,7 @@
 <body>
 <div class="container">
 
-<h1>Busy times</h1>
+<h1>Meeting Maker</h1>
 
 <!--
   -- If there are any warnings or other messages from a prior action,
@@ -123,25 +123,46 @@ function toggle(source) {
   {% endfor %}
   </div>
   <input type="submit" value="Submit">
-  <form>
+  </form>
 {% endif %}
-
+<!--
+<table>
+   <tr>
+      <td>
+         Content of the first column.
+      </td>
+      <td>
+         Content of the second column.
+      </td>
+   </tr>
+</table>
+-->
 {% if g.events is defined %}
-<h5> These are busy times  </h5>
+<form > 
+<table>
+	<tr>
+		<td>
+			<h5> Busy times  </h5>
  
     {% for event in g.events %}
         
-		<li> Description: {{ event.description }} <div>  Start Time: {{event.start | humanize}} </div><div> End Time: {{event.end | humanize}}</div></li>
+		<li> <input type="checkbox" name="free_events"  value="{{event.start}}"> Description: {{ event.description }} <div>  From: {{event.start | humanize}} </div><div> To: {{event.end | humanize}}</div></li>
 		
 		
 	{%endfor%}
-	<br/>
-	<br/>
-<h5> These are open times  </h5>	
+		</td>
+		<td>
+			<h5> Open times  </h5>	
 	{% for event in g.opens %}
-	    <li>  {{ event.description }} <div>  From: {{event.start | humanize}} </div><div> To: {{event.end | humanize}}</div></li>
+	    <li>  <input type="checkbox" name="free_events"  value="{{event.start}}">{{ event.description }} <div>  From: {{event.start | humanize}} </div><div> To: {{event.end | humanize}}</div></li>
 	{%endfor%}
-<br />
+		</td>
+	</tr>
+</table>
+
+
+<input type="submit"  value="Submit" name="submit">
+</form>
 <form action="/index" > 
 <input type="submit"  value="Restart" name="restart">
 </form>

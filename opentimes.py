@@ -43,9 +43,13 @@ def open_times(elist, begin_date, end_date, begin_time, end_time):
         busies = []
         #build list of busy times for the day
         for elem in elist:
-            if (arrow.get(elem['start']).day == arrow.get(date).day):
-                busies.append(elem)
+            if ('day' in elem):
+                #booked all day, no free times
+                continue
             
+            elif (arrow.get(elem['start']).day == arrow.get(date).day):
+                busies.append(elem)
+                
         if len(busies) == 0:
             #if no busy times during day. All day is free
             comp.append( { "description": "FREE AND CLEAR! ",
@@ -54,57 +58,64 @@ def open_times(elist, begin_date, end_date, begin_time, end_time):
                                   })
             #else, cycle through busy times during the day
             #and add to list of times between them for free times
+        
         for i, el in enumerate(busies):
+            cur_time = max(el['end'],begin_time)
             
-            if(i == 0):
-                cur_time = begin_time
-            else :
-                cur_time = busies[i-1]['end']
-            if ('day' in el):
-                #all day is booked, no free time
-                break
-            if el['start'] < cur_time:
+            if el['end'] < begin_time:
+                # event is before scope
+                if i+1 in range(len(busies)):
+                    continue
+                else:
+                    #all events before scope, all times free
+                    comp.append( { "description": "FREE AND CLEAR! ",
+								   "start" : begin_time,
+								   "end" : end_time
+                                  })
+                    break
+            if (el['start'] < begin_time) and (el['end'] < end_time):
                 #start of busy time is before the time frame we're interested in
-                if (el['end'] < end_time) and (el['end'] > begin_time):
-                    #end of busy time is before the latest time we're interested in
-                    cur_time = el['end']
-                    if i+1 in range(len(busies)):
-                        #Theres another busy time after this one on this day
-                        if (busies[i+1]['start'] < end_time):
-                            #next busy time is before end of time we're interested in
-                            comp.append( { "description": "Free after '"+el['description']+"' until '"+busies[i+1]['description']+"'",
+                #and ends before the end time 
+                if i+1 in range(len(busies)):
+                    #Theres another event after this
+                    if (busies[i+1]['start'] < end_time):
+                        #next busy time is before end of time we're interested in
+                        comp.append( { "description": "Free after '"+el['description']+"' until '"+busies[i+1]['description']+"'",
 								   "start" : cur_time,
 								   "end" : busies[i+1]['start']
                                   })
-                            if busies[i+1]['end'] > end_time:
-                                # busy time ends after end time we're interested in
-                                break
+                        if busies[i+1]['end'] > end_time:
+                            # busy time ends after end time we're interested in
+                            break
                         else:
-                            #next busy time is after end of time we're interested in
-                            comp.append( { "description": "Free after '"+el['description']+"'",
-								   "start" : cur_time,
-								   "end" : end_time
-                                  })
+                            #next event will go into next elif statment
+                            continue
                     else:
-                        # no more busy times in day
+                        #next event is after scope
                         comp.append( { "description": "Free after '"+el['description']+"'",
+                               "start" : cur_time,
+                               "end" : end_time
+                               })
+                        break
+                else:
+                    # no more busy times in day
+                    comp.append( { "description": "Free after '"+el['description']+"'",
 								   "start" : cur_time,
 								   "end" : end_time
                                   })
-                else:
-                    #busy for entire time frame we're interested in, no free time
                     break
-            elif el['start'] < end_time:
+                
+            elif (el['start'] < end_time):
+                
                 #start of busy time is before the end of time frame we're interested in
-                if (el['end'] < end_time) and (el['end'] > begin_time):
-                    #end of busy time is before the latest time we're interested in
-                    #free time 
-                    if cur_time == begin_time:
+                if el['end'] < end_time :
+                #and end of busy time is before the latest time we're interested in
+                    if (i==0) or (busies[i-1]['end'] < begin_time):
                         #if starting a new day, add a free block until the time
                         comp.append( { "description": "Free until '"+el['description']+"'",
-								   "start" : cur_time,
+								   "start" : begin_time,
 								   "end" : el['start']
-                                  })
+                                    })
                     cur_time = el['end']
                     if i+1 in range(len(busies)):
                         #multiple busy times in day
@@ -113,34 +124,38 @@ def open_times(elist, begin_date, end_date, begin_time, end_time):
                             comp.append( { "description": "Free after '"+el['description']+"' until '"+busies[i+1]['description']+"'",
 								   "start" : cur_time,
 								   "end" : busies[i+1]['start']
-                                  })
+                                    })
+                            continue
                         else:
                             #next busy time is after end of time we're interested in
                             comp.append( { "description": "Free after '"+el['description']+"'",
 								   "start" : cur_time,
 								   "end" : end_time
-                                  })
+                                    })
+                            break
                     else:
                         # no more busy times in day, 
                         
-                        comp.append( { "description": "And free after '"+el['description']+"'",
+                        comp.append( { "description": "Free after '"+el['description']+"'",
 								   "start" : cur_time,
 								   "end" : end_time
                                   })
+                        break
                         
                 else:
-                    #free from begining to end of time
-                    comp.append( { "description": "Free from begin time to '" +el['description']+"'",
+                    #free from begining of scope to start of event
+                    comp.append( { "description": "Free until '" +el['description']+"'",
 								   "start" : cur_time,
 								   "end" : el['start']
                                   })
+                    break
             else:
                 #free all day
                 comp.append( { "description": "FREE AND CLEAR! ",
-								   "start" : cur_time,
+								   "start" : begin_time,
 								   "end" : end_time
                                   })
-            
+                break
                             
             
         

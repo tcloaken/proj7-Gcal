@@ -22,6 +22,31 @@ import httplib2   # used in oauth2 flow
 
 # Google API for services 
 from apiclient import discovery
+# Mongo database
+import pymongo
+from pymongo import MongoClient
+import secrets.admin_secrets
+import secrets.client_secrets
+MONGO_CLIENT_URL = "mongodb://{}:{}@localhost:{}/{}".format(
+    secrets.client_secrets.db_user,
+    secrets.client_secrets.db_user_pw,
+    secrets.admin_secrets.port, 
+    secrets.client_secrets.db)
+
+
+####
+# Database connection per server process
+###
+
+try: 
+    dbclient = MongoClient(MONGO_CLIENT_URL)
+    db = getattr(dbclient, secrets.client_secrets.db)
+    collection = db.dated
+
+except:
+    print("Failure opening database.  Is Mongo running? Correct password?")
+    sys.exit(1)
+
 
 ###
 # Globals
@@ -95,13 +120,26 @@ def chosen():
     flask.g.events = []
     cals = flask.request.args.getlist("calendar", type = str)
     for cal in cals:
-        eventList.append(get_events(gcal_service,cal.strip()))
+        eventList.append(get_busies(gcal_service,cal.strip()))
         
     flask.g.events = delister(eventList)
     flask.g.opens = get_open_times(delister(eventList))
     return render_template('index.html')
 	
+@app.route("/done")
+def done():    
+    """
+    Puts selected times into mongo database and returns to a completed page
+    """
+    app.logger.debug("ENTERING DONE")
+    times = flask.request.args.getlist("free_events", type = str)
+    eventList = []
+    for el in times:
+        eventList.append()
+    #mongodb stuff....
     
+    return render_template('done.html')
+
 ####
 #
 #  Google calendar authorization:
@@ -227,6 +265,7 @@ def setrange():
     app.logger.debug("Entering setrange")  
     flask.flash("Setrange gave us '{}'".format(
       request.form.get('daterange')))
+    flask.flash("From '{}' to '{}'".format(request.form.get('b_time'),request.form.get('e_time')))
     daterange = request.form.get('daterange')
     b_time = request.form.get('b_time')
     e_time = request.form.get('e_time')
@@ -320,13 +359,7 @@ def next_day(isotext):
 #  Functions (NOT pages) that return some information
 #
 ####
-@app.template_filter( 'humanize' )
-def humanize_arrow_date( date ):
-    """
-    Args: date in isoformat
-    Returns: formated date string
-    """
-    return str(arrow.get(date).format("MMMM DD @ HH:mm"))
+
 
 def delister(slist):
     """
@@ -375,16 +408,16 @@ def list_calendars(service):
     return sorted(result, key=cal_sort_key)
 
     
-def get_events(service,cal):
+def get_busies(service,cal):
     """
     Args: cal  = calendarId from the calendar to get events from
     Returns: list of events from calendar from user specified range of dates and times
     """
-    app.logger.debug("Entering get_events") 
+    app.logger.debug("Entering get_busies") 
     results = [ ]
     time_earliest = arrow.get(flask.session['begin_time']).time()
     time_latest = arrow.get(flask.session['end_time']).time()
-    print (cal, "THIS IS THE CURRENT CAL")
+   
     page_token = None
     while True:
         events = service.events().list(calendarId=cal, pageToken=page_token).execute()
@@ -395,7 +428,7 @@ def get_events(service,cal):
                     if event['start']['dateTime'] >= flask.session['begin_date'] and event['end']['dateTime'] <= flask.session['end_date']:
                         event_time_start = arrow.get(event['start']['dateTime']).time()
                         event_time_end = arrow.get(event['end']['dateTime']).time()
-                        if (time_earliest <= event_time_start <= time_latest) or (time_earliest <= event_time_end <= time_latest ):
+                        if (time_earliest <= event_time_start < time_latest) or (time_earliest < event_time_end <= time_latest ):
                             results.append( {"description": event['summary'],
 								"start" : event['start']['dateTime'],
 								"end" : event['end']['dateTime']
@@ -448,7 +481,83 @@ def cal_sort_key( cal ):
        primary_key = "X"
     return (primary_key, selected_key, cal["summary"])
 
+def add_type(event_list):
+    """
+    Args: event_list -the list of events that you want to have a type
+    returns event_list with an attribute added "type":"dated_events"
+    
+    """
+    for el in event_list:
+        el['type'] = "dated_events"
+    
+    return event_list
 
+def get_events():
+    """
+    Returns all events in the database, in a form that
+    can be inserted directly in the 'session' object.
+    """
+    records = [ ]
+    for record in collection.find( { "type": "dated_event" } ):
+        records.append(record)
+        
+    return sorted(records,key=sortdate)
+
+def sortdate(el):
+    """
+    returns a value from dict el of key "date"
+    """
+    return el["date"]
+    
+def add_events(event_list):
+    """
+    Args:  list of events with type:"event_list"
+           
+    adds events to the database
+    Returns nothing
+    """
+    
+    for el in event_list:
+        collection.insert( el )
+    return  
+
+    
+def add_event(text, start, end):
+    """
+    Args:  start -the time the event starts
+           end -the time the event ends
+           text - the description of the event
+           
+    adds events to the database
+    Returns added events record
+    """
+    d = arrow.get(date).isoformat()
+    record = { "type": "dated_events", 
+           "text": text,
+           "start": start,
+           "end": end,
+           
+          }
+    collection.insert( record )
+    return record
+
+def delete_event(text,start):
+    """
+    Args:  
+           text -what the says
+           start -what time the event starts
+    deletes a events
+    Returns nothing
+    """
+    
+    for record in collection.find( { "type": "dated_events" } ):
+        if(record['text'] == text) and (record['begin'] == start):
+            collection.remove(record)
+            break
+        else:
+            continue
+    
+    return 
 #################
 #
 # Functions used within the templates
@@ -470,7 +579,14 @@ def format_arrow_time( time ):
         return normal.format("HH:mm")
     except:
         return "(bad time)"
-    
+        
+@app.template_filter( 'humanize' )
+def humanize_arrow_date( date ):
+    """
+    Args: date in isoformat
+    Returns: formated date string
+    """
+    return str(arrow.get(date).format("MMMM DD @ HH:mm"))    
 #############
 
 
