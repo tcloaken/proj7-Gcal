@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html lang="en"> <head>
+<title>MeetGazer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet" type="text/css"
+     href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css"
+/>
+
+
+<link rel="stylesheet" type="text/css"
+    href="/static/css/busy.css"
+/>
+
+<!-- jquery from a content distribution network; probably cached -->
+<script type="text/javascript"
+     src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js">
+</script>
+
+<!-- Ideally the rest of our javascript dependencies would be
+     bundled and minified with 'browserify', but I've found that
+     it difficult to handle browserify dependencies for class
+     projects.  So, we'll pick up moment and a date range picker
+     from CDNs instead.
+-->
+
+<script type="text/javascript" src="//cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+
+<script type="text/javascript" src="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.js"></script>
+<link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.css" />
+
+
+</head>
+
+<body>
+<div class="container">
+
+<h1>Meeting Maker </h1>
+
+
+{% if g.free_db %}
+<h3>These are times the people can meet! 
+Click on a time slot to select it for the meeting time</h3>
+    {% for event in g.free_db %}
+  <form action="/select"> 
+  
+  <div class="event">
+  <button type="submit" value="select" >
+  <div class="row">
+  <div class="col-md-12">
+  <input type="hidden" name="free_db"  value="{{event.start}}+{{event.text}}+{{event.customID}}+{{event.end}}"> {{ event.text }}  </br> From: {{event.start | humanize}} </br> To: {{event.end | humanize}}
+	
+
+  </div>
+
+  
+  </form>
+  {%endfor%}
+{%endif%}
+
+  </div>
+  </div>
+  
+<h5>Send this link to your friends</h5>
+
+<a href="localhost:5000{{g.link}}">localhost:5000{{g.link}}</a>
+
+
+<!--
+<form action="mailto:">
+
+<input type="email" name="emails" autocomplete="on" placeholder="anna@example.com,bob@example.com" multiple="multiple">
+<input type="text" value="Would you like to meet with you">
+<input type="submit" value="Send">
+</form>
+
+<form action="mailto:someone@example.com" method="post" enctype="text/plain">
+Name:<br>
+<input type="text" name="name"><br>
+E-mail:<br>
+<input type="text" name="mail"><br>
+Comment:<br>
+<input type="text" name="comment" size="50"><br><br>
+<input type="submit" value="Send">
+<input type="reset" value="Reset">
+</form>
+-->
+</div>
+</body>
+</html>
