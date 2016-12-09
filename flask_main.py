@@ -2,6 +2,7 @@ import flask
 from flask import render_template
 from flask import request
 from flask import url_for
+from flask import g
 import uuid
 
 
@@ -22,9 +23,11 @@ import httplib2   # used in oauth2 flow
 
 # Google API for services 
 from apiclient import discovery
+
 # Mongo database
 import pymongo
 from pymongo import MongoClient
+from bson.objectid import ObjectId
 import secrets.admin_secrets
 import secrets.client_secrets
 MONGO_CLIENT_URL = "mongodb://{}:{}@localhost:{}/{}".format(
@@ -52,8 +55,7 @@ except:
 # Globals
 ###
 import CONFIG
-import secrets.admin_secrets  # Per-machine secrets
-import secrets.client_secrets # Per-application secrets
+
 #  Note to CIS 322 students:  client_secrets is what you turn in.
 #     You need an admin_secrets, but the grader and I don't use yours. 
 #     We use our own admin_secrets file along with your client_secrets
@@ -78,13 +80,29 @@ APPLICATION_NAME = 'MeetMe class project'
 @app.route("/index")
 def index():
   app.logger.debug("Entering index")
-  if ('begin_date' not in flask.session):
-    init_session_values()
-  flask.g.b_time = arrow.get(flask.session['begin_time']).format("H:mm")
-  flask.g.e_time = arrow.get(flask.session['end_time']).format("H:mm")
   
-  return render_template('index.html')
+  if ('user_sel' in flask.session) and (flask.session['user_sel'] == True):
+    if ('user_name' not in flask.session) or (flask.session['user_name']==""):
+        if flask.request.args.get("name") == "":
+            flask.session['user_name'] = "D. Trump"
+        else:
+            flask.session['user_name'] = flask.request.args.get("name")
+    flask.g.cur_b_date = flask.session['begin_date']
+    flask.g.cur_e_date = flask.session['end_date']
+    flask.g.length = flask.session['length']
+    flask.g.b_time = arrow.get(flask.session['begin_time']).format("H:mm")
+    flask.g.e_time = arrow.get(flask.session['end_time']).format("H:mm")
+    flask.session['user_sel'] = False
+    return render_template('splash.html')
+  else:
+    if ('begin_date' not in flask.session):
+        init_session_values()   
+    flask.g.b_time = arrow.get(flask.session['begin_time']).format("H:mm")
+    flask.g.e_time = arrow.get(flask.session['end_time']).format("H:mm")
+    return render_template('index.html')
 
+  
+  
 @app.route("/choose")
 def choose():
     ## We'll need authorization to list calendars 
@@ -133,13 +151,107 @@ def done():
     """
     app.logger.debug("ENTERING DONE")
     times = flask.request.args.getlist("free_events", type = str)
-    eventList = []
-    for el in times:
-        eventList.append()
-    #mongodb stuff....
+    name = flask.session['user_name']
+    if len(times) == 0:
+        flask.flash("You must select at least one open time to meet")
+        return render_template('index.html')
+    else:
+        for el in times:
+            print(el.split("+")[1])
+            add_event(name,max(el.split("+")[0],arrow.get(el.split("+")[0]).replace(hour=get_hour(flask.session['begin_time'])).isoformat()),min(el.split("+")[1],arrow.get(el.split("+")[1]).replace(hour=get_hour(flask.session['end_time'])).isoformat()))
+        return doner()
+
+        
+def get_hour(string):
+    """
+    returns hour from string
+    """
+    print ("THIS IS THE STRING", string)
+    parse = string.split("T")[1]
+    integer = int(parse.split(":")[0])
     
+    return integer
+@app.route('/index/<id>')
+def user_picks(id):
+    #get id from mongodb
+    #fill in splash.html with global values
+    """
+            "start": start_date,
+           "end": end_date,
+           "b_time" : start_time,
+           "e_time" : end_time,
+           "length" : length
+    """
+    meet = get_meet(id)
+    cur_meat = meet[0]
+    flask.session['begin_date'] = cur_meat['start']
+    flask.session['end_date'] = cur_meat["end"]
+    flask.session['begin_time'] = cur_meat["b_time"]
+    flask.session['end_time'] = cur_meat["e_time"]
+    flask.session['length'] = cur_meat["length"]
+    flask.session['user_sel'] = True
+    flask.session['customID'] = id
+    
+    return flask.redirect(flask.url_for('index'))
+    
+    
+@app.route("/restart")
+def restart():       
+    """
+    restarts to index depending on if the user is a creator or not
+    """
+    flask.session['restart'] = True
+    return index()
+
+@app.route("/doner")
+def doner():  
+    """
+    creates list of free event times
+    """
+    
+    g.link = flask.url_for('user_picks',id=flask.session['customID'])
+    recursive_remove_overlaps(get_events())
+    g.free_db = get_events()
     return render_template('done.html')
 
+    
+
+@app.route("/select")
+def select(): 
+    """
+    selects a free time to meet
+    displays in new html 
+    """
+    app.logger.debug("event deleted")
+    text = request.args.get("free_db", type=str)
+    start = text.split("+")[0]
+    new = add_select(start)
+    basket = [new]
+    flask.g.selected = basket
+    return render_template("complete.html")    
+
+
+@app.route("/send_emails")
+def send_emails():  
+    pass
+    
+@app.route("/contin")
+def contin():    
+    if flask.request.args.get("name") == "":
+        flask.session['user_name'] = "H. Clinton"
+    else:
+        flask.session['user_name'] = flask.request.args.get("name")
+    return flask.redirect(flask.url_for("choose"))
+    
+@app.route("/del_event")
+def del_event():
+    app.logger.debug("event deleted")
+    text = request.args.get("free_db", type=str)
+    date = text.split("+")[0]
+    id = text.split("+")[2]
+    text = text.split("+")[1]
+    delete_event(text,date,id)
+    return doner()
 ####
 #
 #  Google calendar authorization:
@@ -262,11 +374,14 @@ def setrange():
     User chose a date range with the bootstrap daterange
     widget.
     """
+    flask.session['user_name'] = request.form.get('name')
+    flask.session['user_sel'] = False
     app.logger.debug("Entering setrange")  
-    flask.flash("Setrange gave us '{}'".format(
-      request.form.get('daterange')))
-    flask.flash("From '{}' to '{}'".format(request.form.get('b_time'),request.form.get('e_time')))
+    length = request.form.get('slider')
     daterange = request.form.get('daterange')
+    flask.flash("Setrange gave us '{}'".format(daterange))
+    flask.flash("From '{}' to '{}'".format(request.form.get('b_time'),request.form.get('e_time')))
+    flask.flash(("For '{}' minutes").format(length))
     b_time = request.form.get('b_time')
     e_time = request.form.get('e_time')
     flask.session['daterange'] = daterange
@@ -275,6 +390,8 @@ def setrange():
     flask.session['end_date'] = interpret_date(daterange_parts[2])
     flask.session['begin_time'] = interpret_time(b_time)
     flask.session['end_time'] = interpret_time(e_time)
+    flask.session['length'] = length
+    create_meet(flask.session['begin_date'],flask.session['end_date'],flask.session['begin_time'],flask.session['end_time'],length)
     app.logger.debug("Setrange parsed {} - {}  dates as {} - {}".format(
       daterange_parts[0], daterange_parts[1], 
       flask.session['begin_date'], flask.session['end_date']))
@@ -433,13 +550,14 @@ def get_busies(service,cal):
 								"start" : event['start']['dateTime'],
 								"end" : event['end']['dateTime']
 								})
-                elif ('date' in event['start']):
-                    if event['start']['date'] >= flask.session['begin_date'] and event['end']['date'] <= flask.session['end_date']:
-                        results.append( {"description": event['summary'],
-                                         "start" : event['start']['date'],
-                                         "end" : event['end']['date'],
-                                         "day" : "All_day"
-                                        })
+                #elif ('date' in event['start']):
+                 #   if event['start']['date'] >= flask.session['begin_date'] and event['end']['date'] <= flask.session['end_date']:
+                  #      print( event['summary'], "start:", event['start'], "and end: ", event['end'])
+                   #     results.append( {"description": event['summary'],
+                    #                     "start" : arrow.get(event['start']['date']).replace(days=+1).floor('day').isoformat(),
+                     #                    "end" : arrow.get(event['end']['date']).ceil('day').isoformat(),
+                      #                   "day" : "All_day"
+                       #                 })
                 
         page_token = events.get('nextPageToken')
         if not page_token:
@@ -498,16 +616,23 @@ def get_events():
     can be inserted directly in the 'session' object.
     """
     records = [ ]
-    for record in collection.find( { "type": "dated_event" } ):
+    for record in collection.find( { "type": "dated_events" , "customID": flask.session['customID']}):
         records.append(record)
-        
-    return sorted(records,key=sortdate)
+    rec = sorted(records,key=sortoff)
+    
+    return sorted(rec,key=sortdate)
 
+def sortoff(el):
+    """
+    returns a value from dict el of key "offset"
+    """
+    return int(el["offset"])
+    
 def sortdate(el):
     """
-    returns a value from dict el of key "date"
+    returns a value from dict el of key "start"
     """
-    return el["date"]
+    return el["start"]
     
 def add_events(event_list):
     """
@@ -522,6 +647,38 @@ def add_events(event_list):
     return  
 
     
+def get_meet(id):
+    
+    cur_meet =[]
+    for col in collection.find( { "_id": ObjectId(id) } ):
+        cur_meet.append(col)
+    return cur_meet
+        
+    
+def create_meet(start_date,end_date, start_time, end_time, length):
+    """
+    Adds a meeting to the database
+    """
+  
+    record = { "type": "meet", 
+           "start": start_date,
+           "end": end_date,
+           "b_time" : start_time,
+           "e_time" : end_time,
+           "length" : length
+           
+          }
+    ids = collection.insert( record )
+    flask.session['customID']= str(ids)
+    #print (flask.session['customID'])
+    return record
+
+def add_event_helper(event):
+    """
+    adds event from just an event
+    """
+    return add_event(event['text'],event['start'],event['end'])
+
 def add_event(text, start, end):
     """
     Args:  start -the time the event starts
@@ -531,17 +688,183 @@ def add_event(text, start, end):
     adds events to the database
     Returns added events record
     """
-    d = arrow.get(date).isoformat()
+    
     record = { "type": "dated_events", 
            "text": text,
            "start": start,
            "end": end,
-           
+           "offset": offset(start,end),
+           "customID" : flask.session['customID']
           }
     collection.insert( record )
     return record
 
-def delete_event(text,start):
+def add_select(start):
+    """
+    adds the selected time to meet into the database
+    """
+    text = "We meet!"
+    record = {
+            "type": "dated_select", 
+           "text": text,
+           "start": start,
+           "length": flask.session['length'],
+           "customID" : flask.session['customID']
+            
+            }
+    collection.insert(record)
+    return record
+    
+    
+def offset(d1,d2):
+    d = arrow.get(d2) - arrow.get(d1)
+    secs = d.total_seconds()
+    mins = int(secs)/60
+    mins = int(mins)
+    return mins
+    
+
+def recursive_remove_overlaps(elist):
+    """
+    requires elist to be sorted by sortoff() then sortdate()
+    recursively remove overlaps
+    """
+   
+    if len(elist) == 0:
+       # print ("EXITING RECUSION")
+        return
+    
+    
+    else:
+        
+        bin = []
+        for elm in elist:
+            bin.append(elm)
+            
+        for i, elem in enumerate(bin):
+           
+            #iterates throu list to find overlaps
+            if i+1 not in range(len(bin)): # if next item does not exist
+               
+                bin.remove(elem)
+                break
+            elif bin[i+1]['start'] >= elem['end']: #next item start is after current items end
+              
+                bin.remove(elem)
+                break
+            elif elem['start'] <= bin[i+1]['start'] < elem['end']:
+               
+                two = [elem,bin[i+1]]
+                bin.remove(bin[i+1])
+                bin.remove(elem)
+                
+                overs = combine_overlap(two)
+                for i, el in enumerate(overs):
+                    bin.insert(i,el)
+              
+                break
+            else:
+                
+                bin.remove(elem)
+        return recursive_remove_overlaps(bin)
+    
+def remove_from_list(smlist,blist):
+    """
+    takes a small list (sub set of big list) and removes it from the big list
+    """
+    for el in smlist:
+        blist.remove(el)
+    return blist
+    
+    
+def combine_overlap(two_events):
+    """
+    combines two events into one
+    returns list of events
+    """
+    start = "start"
+    end = "end"
+    results = []
+    first = two_events[0] 
+    second = two_events[1]
+    ##get names of people with overlapping times
+    names2 = second['text'].split(",") 
+    names1 = first['text'].split(",")
+    names = names2 + names1
+    text = ""
+    
+    for el in names2:
+        if el in names1:
+            names.remove(el)
+    for i in range(len(names)-1):
+        text += str(names[i])
+        if i+1 in range(len(names)):
+            text += ","+str(names[i+1])
+    
+    if (second['start'] == first['start']):
+        new = {
+           "text": text,
+           "start": first['start'],
+           "end": first['end'],
+           "customID" : flask.session['customID']
+            }   
+       
+        delete_helper(first)
+        add_event_helper(new)
+        results.append(new)
+        if second['end'] == first['end']:
+            delete_helper(second)
+        else:
+            results.append(find_and_modify(second,start,first['end']))
+    else: # first['end'] > second['start']:    
+        new = {
+           
+           "text": text,
+           "start": second['start'],
+           "end": first['end'],
+           "customID" : flask.session['customID']
+            }  
+        
+        add_event_helper(new)
+        results.append(find_and_modify(first,end,second['start']))
+        results.append(new)
+        results.append(find_and_modify(second,start,first['end']))
+    
+    
+    return results
+    
+    
+
+def find_and_modify(doc,point,update):
+    """
+    finds a document in the collection of the mongodb and updates a "point"
+    Args: doc -> (the document in the db)
+          point ->(either a "start" or "end")
+          update ->(a new value)
+          
+    """
+   
+    for record in collection.find( { "type": "dated_events" } ):
+        if(record['text'] == doc['text']) and (record['start'] == doc['start']) and (record['customID'] == doc['customID']):
+            new = record
+            collection.remove(record)
+            new[point] = update
+            print ("This is new end:",new['end'])
+            return add_event_helper(new)
+        else:
+            continue
+    return
+    
+    
+    
+
+def delete_helper(event):
+    """
+    picks out text,start, and id
+    """
+    return delete_event(event['text'],event['start'],event['customID'])
+    
+def delete_event(text,start,id):
     """
     Args:  
            text -what the says
@@ -551,7 +874,7 @@ def delete_event(text,start):
     """
     
     for record in collection.find( { "type": "dated_events" } ):
-        if(record['text'] == text) and (record['begin'] == start):
+        if(record['text'] == text) and (record['start'] == start) and (record['customID'] == id):
             collection.remove(record)
             break
         else:
@@ -586,6 +909,7 @@ def humanize_arrow_date( date ):
     Args: date in isoformat
     Returns: formated date string
     """
+    
     return str(arrow.get(date).format("MMMM DD @ HH:mm"))    
 #############
 

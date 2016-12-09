@@ -1,8 +1,15 @@
-# proj7-Gcal
+# proj10-Gcal
 # Author = Trevor Enright ,  tenright@uoregon.edu
 
-Grab appointment data from a selection of a user's Google calendars 
-Provides list of busy times with a description, also lists open times
+Meet me application. User selects time ranges and lenght of time to meet.
+Grabs appointment data from a selection of a user's Google calendars 
+Provides list of busy times with a description, also lists open times,
+User selects times to be available then passes link along to persons he or she
+would like to meet.
+
+Other person follows link to choose their own calendars and pick their own times.
+
+Any user can select the time to meet
 
 
 

@@ -29,6 +29,8 @@
 <script type="text/javascript" src="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.js"></script>
 <link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.css" />
 
+<script type="text/javascript" src="https://cdn.jsdelivr.net/bootstrap-slider/9.5.3/bootstrap-slider.js"></script>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/bootstrap-slider/9.5.3/css/bootstrap-slider.css" />
 
 </head>
 
@@ -52,8 +54,11 @@
     </ul>
   {% endif %}
 {% endwith %}
+
 {% if (g.calendars is not defined) and (g.events is not defined) %}
 <h2>Date range</h2>
+<h4>Select a meeting date range and time range</h4>
+
   <form action="/setrange" method="post">
   <input type="text" name="daterange" size="12"
     {% if session.daterange is defined %}
@@ -82,10 +87,38 @@
 
 <br />begin time<input type="text" value="{{g.b_time}}" name="b_time">
 <br />end time <input type="text" value="{{g.e_time}}" name="e_time">
+<br />
+<br />
+<br /> 
 
-<br /><input type="submit" value="Choose" />
+
+<script type="text/javascript">
+	$(function() {
+		
+		var slider = new Slider("#greezy", {
+		tooltip: 'always',
+		step: 15,
+		min: 15,
+		max: 65,
+		ticks: [15, 30, 45, 60],
+        ticks_labels: ['15 min', '', '', '1 hour']
+		});
+	});	
+</script>
+
+<h4>Your name?</h4>
+<input type="text" name="name" placeholder="D. Trump">
+<h4>How long would you like to meet?</h4>
+<br /><br />
+<input id="greezy" type="text" name="slider" value="15" data-slider-handle="custom"/>
+<br />
+<input type="submit" value="Submit">
 </form>
 {%endif%}
+
+
+
+
     <!--
     Show the calendar list (if we have it).  This will need to be turned into
     a form from which calendars can be picked. Up to three entries are
@@ -138,7 +171,8 @@ function toggle(source) {
 </table>
 -->
 {% if g.events is defined %}
-<form > 
+<h5> Select your free times </h5>
+<form action="/done"> 
 <table>
 	<tr>
 		<td>
@@ -146,7 +180,7 @@ function toggle(source) {
  
     {% for event in g.events %}
         
-		<li> <input type="checkbox" name="free_events"  value="{{event.start}}"> Description: {{ event.description }} <div>  From: {{event.start | humanize}} </div><div> To: {{event.end | humanize}}</div></li>
+		<li> <input type="checkbox" name="free_events"  value="{{event.start}}+{{event.end}}"> Description: {{ event.description }} <div>  From: {{event.start | humanize}} </div><div> To: {{event.end | humanize}}</div></li>
 		
 		
 	{%endfor%}
@@ -154,7 +188,7 @@ function toggle(source) {
 		<td>
 			<h5> Open times  </h5>	
 	{% for event in g.opens %}
-	    <li>  <input type="checkbox" name="free_events"  value="{{event.start}}">{{ event.description }} <div>  From: {{event.start | humanize}} </div><div> To: {{event.end | humanize}}</div></li>
+	    <li>  <input type="checkbox" checked="checked" name="free_events"  value="{{event.start}}+{{event.end}}">{{ event.description }} <div>  From: {{event.start | humanize}} </div><div> To: {{event.end | humanize}}</div></li>
 	{%endfor%}
 		</td>
 	</tr>
@@ -163,7 +197,7 @@ function toggle(source) {
 
 <input type="submit"  value="Submit" name="submit">
 </form>
-<form action="/index" > 
+<form action="/restart" > 
 <input type="submit"  value="Restart" name="restart">
 </form>
 {% endif %}

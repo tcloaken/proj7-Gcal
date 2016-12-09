@@ -49,9 +49,12 @@ INVENV = . env/bin/activate ;
 # 'make run' runs Flask's built-in test server, 
 #  with debugging turned on unless it is unset in CONFIG.py
 # 
-run:	env
+run:	env database_exists
 	($(INVENV) python3 flask_main.py) ||  true
 
+database_exists: 
+	($(INVENV) python3 create_db.py)
+	touch database_exists
 # 'make service' runs as a background job under the gunicorn 
 #  WSGI server. FIXME:  A real production service would use 
 #  NGINX in combination with gunicorn to prevent DOS attacks. 
